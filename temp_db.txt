@@ -1,3 +1,0 @@
-{"longUrl":"https://testingbigurl.com/testing"}
-{"longUrl":"https://testingbigurl.com/testing2"}
-{"longUrl":"https://testingbigurl.com/testing3"}
