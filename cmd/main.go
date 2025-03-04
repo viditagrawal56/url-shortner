@@ -11,19 +11,30 @@ import (
 	"time"
 
 	"github.com/viditagrawal56/url-shortner/internal/config"
+	"github.com/viditagrawal56/url-shortner/internal/db"
 	"github.com/viditagrawal56/url-shortner/internal/handlers"
 )
 
 func main() {
+	// Load the config
 	cfg, err := config.Load()
 	if err != nil {
 		log.Fatalf("Failed to load config: %v", err)
 	}
 
+	// Initialize database
+	database, err := db.New(cfg.Database)
+	if err != nil {
+		log.Fatalf("Failed to load configuration: %v", err)
+	}
+	defer database.Close()
+
+	// Initialize router with handlers
 	router := handlers.NewRouter(cfg)
 
+	// Configure the server
 	srv := &http.Server{
-		Addr: fmt.Sprintf(":%d", cfg.Server.Port),
+		Addr:    fmt.Sprintf(":%d", cfg.Server.Port),
 		Handler: router,
 	}
 
@@ -34,12 +45,14 @@ func main() {
 		}
 	}()
 
+	// Wait for interrupt signal to gracefully shutdown the server
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
 
 	log.Println("Shutting down server...")
 
+	// Wait for the current operations to compelete
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
 
