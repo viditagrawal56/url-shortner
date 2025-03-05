@@ -13,6 +13,7 @@ import (
 	"github.com/viditagrawal56/url-shortner/internal/config"
 	"github.com/viditagrawal56/url-shortner/internal/db"
 	"github.com/viditagrawal56/url-shortner/internal/handlers"
+	"github.com/viditagrawal56/url-shortner/internal/models"
 )
 
 func main() {
@@ -27,10 +28,15 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to load configuration: %v", err)
 	}
+	log.Println("Connected to the database")
 	defer database.Close()
+	if err := database.AutoMigrate(&models.User{}); err != nil {
+		log.Fatalf("Failed to migrate database: %v", err)
+	}
+	log.Println("Completed autoMigration successfully")
 
 	// Initialize router with handlers
-	router := handlers.NewRouter(cfg)
+	router := handlers.NewRouter(database, cfg)
 
 	// Configure the server
 	srv := &http.Server{

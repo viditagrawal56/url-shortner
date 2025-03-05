@@ -47,3 +47,11 @@ func (d *Database) Close() error {
 
 	return sqlDB.Close()
 }
+
+func (d *Database) AutoMigrate(models ...interface{}) error {
+	return d.db.AutoMigrate(models...)
+}
+
+func (d *Database) GetDB() *gorm.DB {
+	return d.db
+}

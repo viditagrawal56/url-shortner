@@ -2,6 +2,7 @@ package config
 
 import (
 	"fmt"
+	"log"
 	"os"
 	"strconv"
 	"time"
@@ -10,6 +11,7 @@ import (
 type Config struct {
 	Server   ServerConfig
 	Database DatabaseConfig
+	Auth     AuthConfig
 }
 
 type ServerConfig struct {
@@ -24,6 +26,11 @@ type DatabaseConfig struct {
 	ConnMaxLifetime time.Duration
 }
 
+type AuthConfig struct {
+	TokenExpiration time.Duration
+	Secret          string
+}
+
 func Load() (*Config, error) {
 	//Server Config
 	port, err := strconv.Atoi(getEnv("SERVER_PORT", "8080"))
@@ -36,6 +43,12 @@ func Load() (*Config, error) {
 	maxIdleConns, _ := strconv.Atoi(getEnv("DB_MAX_IDLE_CONNS", "25"))
 	connMaxLifetime, _ := time.ParseDuration(getEnv("DB_CONN_MAX_LIFETIME", "5m"))
 
+	//Auth Config
+	tokenExpiration, err := time.ParseDuration(getEnv("AUTH_TOKEN_EXPIRATION", "15m"))
+	if err != nil {
+		log.Fatal("Invalid AUTH_TOKEN_EXPIRATION format. Use a valid duration string like '15m'")
+	}
+
 	return &Config{
 		Server: ServerConfig{
 			Port:    port,
@@ -46,6 +59,10 @@ func Load() (*Config, error) {
 			MaxOpenConns:    maxOpenConns,
 			MaxIdleConns:    maxIdleConns,
 			ConnMaxLifetime: connMaxLifetime,
+		},
+		Auth: AuthConfig{
+			TokenExpiration: tokenExpiration,
+			Secret:          getEnv("AUTH_SECRET", "auth-secret-key"),
 		},
 	}, nil
 }
