@@ -50,8 +50,22 @@ func NewRouter(database *db.Database, cfg *config.Config) http.Handler {
 	//Public routes
 	r.Group(func(r chi.Router) {
 		r.Post("/register", api.HandleUserRegistration)
+		r.Post("/login", api.HandleUserLogin)
+		r.Get("/", api.HandleHome)
 	})
-	r.Get("/", api.HandleHome)
+
+	//Protected routes
+	r.Group(func(r chi.Router) {
+		r.Use(authService.AuthMiddleware)
+		r.Get("/protected", func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "application/json")
+			response := map[string]string{"message": "this is a protected endpoint"}
+
+			if err := json.NewEncoder(w).Encode(response); err != nil {
+				http.Error(w, "Error encoding response", http.StatusInternalServerError)
+			}
+		})
+	})
 
 	return r
 }
@@ -83,7 +97,7 @@ func (a *API) HandleUserRegistration(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		switch {
 		case errors.Is(err, auth.ErrUserExists):
-			respondWithError(w, http.StatusConflict, "User already exists")
+			respondWithError(w, http.StatusConflict, "User with this email already exists")
 		case errors.Is(err, auth.ErrInvalidInput):
 			respondWithError(w, http.StatusBadRequest, "Invalid input")
 		default:
@@ -96,6 +110,43 @@ func (a *API) HandleUserRegistration(w http.ResponseWriter, r *http.Request) {
 	respondWithJSON(w, http.StatusCreated, Response{
 		Success: true,
 		Message: "User registered successfully",
+	})
+}
+
+func (a *API) HandleUserLogin(w http.ResponseWriter, r *http.Request) {
+	var credentials models.Credentials
+	if err := json.NewDecoder(r.Body).Decode(&credentials); err != nil {
+		respondWithError(w, http.StatusBadRequest, "Invalid request payload")
+		return
+	}
+
+	// Validate input
+	if credentials.Email == "" || credentials.Password == "" {
+		respondWithError(w, http.StatusBadRequest, "Email and password are required")
+		return
+	}
+
+	// Start the login process
+	token, err := a.auth.LoginUser(credentials.Email, credentials.Password)
+	if err != nil {
+		switch {
+		case errors.Is(err, auth.ErrInvalidCredentials):
+			respondWithError(w, http.StatusUnauthorized, "Invalid email or password")
+		case errors.Is(err, auth.ErrInvalidInput):
+			respondWithError(w, http.StatusBadRequest, "Invalid input")
+		default:
+			log.Printf("Error logging in user: %v", err)
+			respondWithError(w, http.StatusInternalServerError, "Failed to login user")
+		}
+		return
+	}
+
+	respondWithJSON(w, http.StatusOK, Response{
+		Success: true,
+		Message: "User logged in successfully",
+		Data: map[string]string{
+			"token": token,
+		},
 	})
 }
 

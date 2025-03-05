@@ -28,7 +28,7 @@ type DatabaseConfig struct {
 
 type AuthConfig struct {
 	TokenExpiration time.Duration
-	Secret          string
+	JWTSecret       string
 }
 
 func Load() (*Config, error) {
@@ -62,7 +62,7 @@ func Load() (*Config, error) {
 		},
 		Auth: AuthConfig{
 			TokenExpiration: tokenExpiration,
-			Secret:          getEnv("AUTH_SECRET", "auth-secret-key"),
+			JWTSecret:       getEnv("AUTH_JWT_SECRET", "auth-jwt-secret-key"),
 		},
 	}, nil
 }
