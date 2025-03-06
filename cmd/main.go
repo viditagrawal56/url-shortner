@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"flag"
 	"fmt"
 	"log"
 	"net/http"
@@ -23,6 +24,9 @@ func main() {
 		log.Fatalf("Failed to load config: %v", err)
 	}
 
+	resetDB := flag.Bool("reset-db", false, "Reset the database before running migrations")
+	flag.Parse()
+
 	// Initialize database
 	database, err := db.New(cfg.Database)
 	if err != nil {
@@ -30,20 +34,41 @@ func main() {
 	}
 	log.Println("Connected to the database")
 	defer database.Close()
-	if err := database.AutoMigrate(&models.User{}); err != nil {
-		log.Fatalf("Failed to migrate database: %v", err)
+
+	// Models to migrate
+	models := []interface{}{
+		&models.User{},
+		&models.AuthorizedEmail{},
+		&models.ShortURL{},
+		&models.Credentials{},
 	}
-	log.Println("Completed autoMigration successfully")
+
+	// Handle migrations based on flag
+	if *resetDB {
+		if err := database.ResetAndMigrate(models...); err != nil {
+			log.Fatalf("Failed to reset and migrate database: %v", err)
+		}
+		log.Println("Database reset and migration completed")
+	} else {
+		if err := database.AutoMigrate(models...); err != nil {
+			log.Fatalf("Failed to migrate database: %v", err)
+		}
+		log.Println("Database migration completed")
+	}
 
 	// Initialize router with handlers
 	router := handlers.NewRouter(database, cfg)
 
 	// Configure the server
 	srv := &http.Server{
-		Addr:    fmt.Sprintf(":%d", cfg.Server.Port),
-		Handler: router,
+		Addr:         fmt.Sprintf(":%d", cfg.Server.Port),
+		Handler:      router,
+		ReadTimeout:  15 * time.Second,
+		WriteTimeout: 15 * time.Second,
+		IdleTimeout:  60 * time.Second,
 	}
 
+	//Start the server
 	go func() {
 		log.Printf("Starting server on port %d", cfg.Server.Port)
 		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
@@ -55,7 +80,6 @@ func main() {
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
-
 	log.Println("Shutting down server...")
 
 	// Wait for the current operations to compelete

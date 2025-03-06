@@ -2,6 +2,7 @@ package db
 
 import (
 	"fmt"
+	"log"
 
 	"github.com/viditagrawal56/url-shortner/internal/config"
 	"gorm.io/driver/postgres"
@@ -50,6 +51,24 @@ func (d *Database) Close() error {
 
 func (d *Database) AutoMigrate(models ...interface{}) error {
 	return d.db.AutoMigrate(models...)
+}
+
+func (d *Database) ResetAndMigrate(models ...interface{}) error {
+	// Drop tables in reverse order to handle foreign key constraints
+	for i := len(models) - 1; i >= 0; i-- {
+		if err := d.db.Migrator().DropTable(models[i]); err != nil {
+			return fmt.Errorf("failed to drop table for model %T: %w", models[i], err)
+		}
+		log.Printf("Dropped table for model %T", models[i])
+	}
+
+	// Run migrations for all models
+	if err := d.db.AutoMigrate(models...); err != nil {
+		return fmt.Errorf("failed to run migrations: %w", err)
+	}
+	log.Println("Successfully re-created and migrated all tables")
+
+	return nil
 }
 
 func (d *Database) GetDB() *gorm.DB {

@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/google/uuid"
 	"github.com/viditagrawal56/url-shortner/internal/config"
 	"github.com/viditagrawal56/url-shortner/internal/db"
 	"github.com/viditagrawal56/url-shortner/internal/models"
@@ -33,8 +34,8 @@ type Service struct {
 }
 
 type JWTClaims struct {
-	UserID uint   `json:"user_id"`
-	Email  string `json:"email"`
+	UserID uuid.UUID `json:"user_id"`
+	Email  string    `json:"email"`
 	jwt.RegisteredClaims
 }
 
@@ -52,7 +53,7 @@ func New(database *db.Database, cfg *config.Config) *Service {
 	}
 }
 
-func (s *Service) generateJWTToken(userID uint, email string) (string, error) {
+func (s *Service) generateJWTToken(userID uuid.UUID, email string) (string, error) {
 	claims := JWTClaims{
 		UserID: userID,
 		Email:  email,
