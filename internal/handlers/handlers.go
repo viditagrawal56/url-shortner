@@ -15,11 +15,13 @@ import (
 	"github.com/viditagrawal56/url-shortner/internal/config"
 	"github.com/viditagrawal56/url-shortner/internal/db"
 	"github.com/viditagrawal56/url-shortner/internal/models"
+	"github.com/viditagrawal56/url-shortner/internal/urlShortner"
 )
 
 type API struct {
-	cfg  *config.Config
-	auth *auth.Service
+	cfg         *config.Config
+	auth        *auth.Service
+	urlShortner *urlShortner.URLShortnerService
 }
 
 type Response struct {
@@ -30,9 +32,12 @@ type Response struct {
 
 func NewRouter(database *db.Database, cfg *config.Config) http.Handler {
 	authService := auth.New(database, cfg)
+	urlShortnerService := urlShortner.NewUrlShortnerService(database.GetDB())
+
 	api := &API{
-		cfg:  cfg,
-		auth: authService,
+		cfg:         cfg,
+		auth:        authService,
+		urlShortner: urlShortnerService,
 	}
 
 	r := chi.NewRouter()
@@ -59,7 +64,7 @@ func NewRouter(database *db.Database, cfg *config.Config) http.Handler {
 	//Protected routes
 	r.Group(func(r chi.Router) {
 		r.Use(authService.AuthMiddleware)
-		
+
 		// protected route for testing
 		r.Get("/protected", func(w http.ResponseWriter, r *http.Request) {
 			w.Header().Set("Content-Type", "application/json")
@@ -159,22 +164,30 @@ func (a *API) HandleUserLogin(w http.ResponseWriter, r *http.Request) {
 func (a *API) HandleCreateShortURL(w http.ResponseWriter, r *http.Request) {
 	userID, ok := r.Context().Value(auth.UserIDKey).(uuid.UUID)
 	if !ok {
-		respondWithError(w,http.StatusUnauthorized, "You are not authorized, Please login")
+		respondWithError(w, http.StatusUnauthorized, "You are not authorized, Please login")
 		return
 	}
 
 	var req models.CreateShortURLRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil{
-		respondWithError(w,http.StatusBadRequest,"Invalid Request")
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		respondWithError(w, http.StatusBadRequest, "Invalid Request")
 		return
 	}
 
 	// Validate the incoming URL
 	if req.OriginalURL == "" || !isValidURL(req.OriginalURL) {
-		respondWithError(w, http.StatusBadRequest,"Please enter a valid URL")
+		respondWithError(w, http.StatusBadRequest, "Please enter a valid URL")
 		return
 	}
 
+	shortURL, err := a.urlShortner.CreateShortURL(userID, req.OriginalURL, req.Options)
+	if err != nil {
+		log.Printf("Error creating short URL: %v", err)
+		respondWithError(w, http.StatusInternalServerError, "Failed to create the short URL")
+		return
+	}
+
+	respondWithJSON(w, http.StatusCreated, shortURL)
 }
 
 func respondWithJSON(w http.ResponseWriter, code int, payload interface{}) {
@@ -199,5 +212,5 @@ func respondWithError(w http.ResponseWriter, code int, message string) {
 
 // TODO: Improve the url validation to make it more robust
 func isValidURL(url string) bool {
-	return strings.HasPrefix(url, "http://") || strings.HasPrefix(url, "https://") 
+	return strings.HasPrefix(url, "http://") || strings.HasPrefix(url, "https://")
 }
