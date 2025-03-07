@@ -5,10 +5,12 @@ import (
 	"errors"
 	"log"
 	"net/http"
+	"strings"
 
 	"github.com/go-chi/chi/middleware"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/cors"
+	"github.com/google/uuid"
 	"github.com/viditagrawal56/url-shortner/internal/auth"
 	"github.com/viditagrawal56/url-shortner/internal/config"
 	"github.com/viditagrawal56/url-shortner/internal/db"
@@ -57,6 +59,8 @@ func NewRouter(database *db.Database, cfg *config.Config) http.Handler {
 	//Protected routes
 	r.Group(func(r chi.Router) {
 		r.Use(authService.AuthMiddleware)
+		
+		// protected route for testing
 		r.Get("/protected", func(w http.ResponseWriter, r *http.Request) {
 			w.Header().Set("Content-Type", "application/json")
 			response := map[string]string{"message": "this is a protected endpoint"}
@@ -65,6 +69,8 @@ func NewRouter(database *db.Database, cfg *config.Config) http.Handler {
 				http.Error(w, "Error encoding response", http.StatusInternalServerError)
 			}
 		})
+
+		r.Post("/urls", api.HandleCreateShortURL)
 	})
 
 	return r
@@ -150,6 +156,27 @@ func (a *API) HandleUserLogin(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+func (a *API) HandleCreateShortURL(w http.ResponseWriter, r *http.Request) {
+	userID, ok := r.Context().Value(auth.UserIDKey).(uuid.UUID)
+	if !ok {
+		respondWithError(w,http.StatusUnauthorized, "You are not authorized, Please login")
+		return
+	}
+
+	var req models.CreateShortURLRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil{
+		respondWithError(w,http.StatusBadRequest,"Invalid Request")
+		return
+	}
+
+	// Validate the incoming URL
+	if req.OriginalURL == "" || !isValidURL(req.OriginalURL) {
+		respondWithError(w, http.StatusBadRequest,"Please enter a valid URL")
+		return
+	}
+
+}
+
 func respondWithJSON(w http.ResponseWriter, code int, payload interface{}) {
 	response, err := json.Marshal(payload)
 	if err != nil {
@@ -168,4 +195,9 @@ func respondWithError(w http.ResponseWriter, code int, message string) {
 		Success: false,
 		Message: message,
 	})
+}
+
+// TODO: Improve the url validation to make it more robust
+func isValidURL(url string) bool {
+	return strings.HasPrefix(url, "http://") || strings.HasPrefix(url, "https://") 
 }

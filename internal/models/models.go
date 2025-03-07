@@ -47,3 +47,16 @@ type Credentials struct {
 	Email    string `json:"email"`
 	Password string `json:"password"`
 }
+
+type ShortURLOptions struct {
+	RequiresAuth bool `json:"requires_auth"`
+	NotifyOnAccess bool `json:"notify_on_access"`
+	ValidFrom *time.Time `json:"valid_from"`
+	ValidUntil *time.Time `json:"valid_until"`
+	AuthorizedEmails []string `json:"authorized_emails,omitempty"`
+}
+
+type CreateShortURLRequest struct {
+	OriginalURL string `json:"original_url" binding:"required"`
+	Options ShortURLOptions `json:"options"`
+}
