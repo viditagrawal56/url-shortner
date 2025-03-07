@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/viditagrawal56/url-shortner/internal/models"
@@ -12,6 +13,14 @@ import (
 )
 
 var (
+	ErrURLNotFound            = errors.New("short URL not found")
+	ErrURLExpired             = errors.New("URL has expired")
+	ErrURLNotYetValid         = errors.New("URL is not yet valid")
+	ErrAuthenticationRequired = errors.New("authentication required to access this URL")
+	ErrUnauthorizedAccess     = errors.New("you are not authorized to access this URL")
+)
+
+const (
 	charset         = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 	shortCodeLength = 7
 )
@@ -77,6 +86,48 @@ func (s *URLShortnerService) CreateShortURL(userID uuid.UUID, originalURL string
 	}
 
 	return shortURL, nil
+}
+
+func (s *URLShortnerService) ResolveShortURL(shortCode string, email string) (*models.ShortURL, error) {
+	var shortURL models.ShortURL
+	if err := s.db.Preload("AuthorizedEmails").
+		Where("short_code = ? AND active = true", shortCode).
+		First(&shortURL).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, ErrURLNotFound
+		}
+		return nil, fmt.Errorf("failed to fetch short URL: %w", err)
+	}
+
+	// Check if URL is valid based on time constraints
+	now := time.Now()
+	if shortURL.ValidFrom != nil && now.Before(*shortURL.ValidFrom) {
+		return nil, ErrURLNotYetValid
+	}
+
+	if shortURL.ValidUntil != nil && now.After(*shortURL.ValidUntil) {
+		return nil, ErrURLExpired
+	}
+
+	if shortURL.RequiresAuth {
+		if email == "" {
+			return nil, ErrAuthenticationRequired
+		}
+
+		isAuthorized := false
+		for _, authorizedEmail := range shortURL.AuthorizedEmails {
+			if authorizedEmail.Email == email {
+				isAuthorized = true
+				break
+			}
+		}
+
+		if !isAuthorized {
+			return nil, ErrUnauthorizedAccess
+		}
+	}
+
+	return &shortURL, nil
 }
 
 // TODO: Improve the shortining algorithm

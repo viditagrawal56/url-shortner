@@ -59,6 +59,7 @@ func NewRouter(database *db.Database, cfg *config.Config) http.Handler {
 		r.Post("/register", api.HandleUserRegistration)
 		r.Post("/login", api.HandleUserLogin)
 		r.Get("/", api.HandleHome)
+		r.Get("/{shortCode}", api.HandleRedirect)
 	})
 
 	//Protected routes
@@ -188,6 +189,41 @@ func (a *API) HandleCreateShortURL(w http.ResponseWriter, r *http.Request) {
 	}
 
 	respondWithJSON(w, http.StatusCreated, shortURL)
+}
+
+func (a *API) HandleRedirect(w http.ResponseWriter, r *http.Request) {
+	shortCode := chi.URLParam(r, "shortCode")
+	if shortCode == "" {
+		http.Redirect(w, r, "/", http.StatusFound)
+		return
+	}
+
+	// TODO: get the email from the cookies afer figuring out the visitor auth
+	email := ""
+
+	shortURL, err := a.urlShortner.ResolveShortURL(shortCode, email)
+	if err != nil {
+		switch {
+		case errors.Is(err, urlShortner.ErrURLNotFound):
+			respondWithError(w, http.StatusNotFound, "URL not found")
+		case errors.Is(err, urlShortner.ErrURLExpired):
+			respondWithError(w, http.StatusGone, "URL has expired")
+		case errors.Is(err, urlShortner.ErrURLNotYetValid):
+			respondWithError(w, http.StatusForbidden, "URL is not yet valid")
+		case errors.Is(err, urlShortner.ErrAuthenticationRequired):
+			// TODO: Redirect to email verification page
+			respondWithError(w, http.StatusNotFound, "Please verify your email")
+		case errors.Is(err, urlShortner.ErrUnauthorizedAccess):
+			respondWithError(w, http.StatusForbidden, "You are not authorized to access this URL")
+		default:
+			log.Printf("Error resolving short URL: %v", err)
+			respondWithError(w, http.StatusInternalServerError, "An error occurred")
+		}
+		return
+	}
+
+	// Redirect to the original URL
+	http.Redirect(w, r, shortURL.OriginalURL, http.StatusFound)
 }
 
 func respondWithJSON(w http.ResponseWriter, code int, payload interface{}) {
