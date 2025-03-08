@@ -77,6 +77,7 @@ func NewRouter(database *db.Database, cfg *config.Config) http.Handler {
 		})
 
 		r.Post("/urls", api.HandleCreateShortURL)
+		r.Get("/urls", api.HandleGetUserShortURLs)
 	})
 
 	return r
@@ -224,6 +225,23 @@ func (a *API) HandleRedirect(w http.ResponseWriter, r *http.Request) {
 
 	// Redirect to the original URL
 	http.Redirect(w, r, shortURL.OriginalURL, http.StatusFound)
+}
+
+func (a *API) HandleGetUserShortURLs(w http.ResponseWriter, r *http.Request) {
+	userID, ok := r.Context().Value(auth.UserIDKey).(uuid.UUID)
+	if !ok {
+		respondWithError(w, http.StatusUnauthorized, "Unauthorized")
+		return
+	}
+
+	shortURLs, err := a.urlShortner.GetUserShortURLs(userID)
+	if err != nil {
+		log.Printf("error getting user's short URLs: %v", err)
+		respondWithError(w, http.StatusInternalServerError, "Failed to get short URLs")
+		return
+	}
+
+	respondWithJSON(w, http.StatusFound, shortURLs)
 }
 
 func respondWithJSON(w http.ResponseWriter, code int, payload interface{}) {

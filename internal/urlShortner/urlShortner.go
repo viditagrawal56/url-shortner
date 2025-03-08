@@ -130,6 +130,16 @@ func (s *URLShortnerService) ResolveShortURL(shortCode string, email string) (*m
 	return &shortURL, nil
 }
 
+func (s *URLShortnerService) GetUserShortURLs(userID uuid.UUID) ([]models.ShortURL, error) {
+	var shortURLs []models.ShortURL
+
+	if err := s.db.Preload("AuthorizedEmails").Where("user_id = ?", userID).Find(&shortURLs).Error; err != nil {
+		return nil, fmt.Errorf("failed to fetch user's short URLs: %w", err)
+	}
+
+	return shortURLs, nil
+}
+
 // TODO: Improve the shortining algorithm
 func (s *URLShortnerService) generateUniqueShortCode() (string, error) {
 	for attempts := 0; attempts < 5; attempts++ {

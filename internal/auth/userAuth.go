@@ -180,15 +180,6 @@ func (s *Service) AuthMiddleware(next http.Handler) http.Handler {
 	})
 }
 
-func GetUserIDFromContext(ctx context.Context) (uint, bool) {
-	id, ok := ctx.Value("userID").(uint)
-	return id, ok
-}
-func GetEmailFromContext(ctx context.Context) (string, bool) {
-	email, ok := ctx.Value("email").(string)
-	return email, ok
-}
-
 func writeAuthError(w http.ResponseWriter, err error) {
 	w.Header().Set("Content-Type", "application/json")
 
