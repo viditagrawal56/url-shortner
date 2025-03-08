@@ -189,7 +189,10 @@ func (a *API) HandleCreateShortURL(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	respondWithJSON(w, http.StatusCreated, shortURL)
+	respondWithJSON(w, http.StatusCreated, Response{
+		Success: true,
+		Data:    shortURL,
+	})
 }
 
 func (a *API) HandleRedirect(w http.ResponseWriter, r *http.Request) {
@@ -241,7 +244,10 @@ func (a *API) HandleGetUserShortURLs(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	respondWithJSON(w, http.StatusFound, shortURLs)
+	respondWithJSON(w, http.StatusFound, Response{
+		Success: true,
+		Data:    shortURLs,
+	})
 }
 
 func respondWithJSON(w http.ResponseWriter, code int, payload interface{}) {

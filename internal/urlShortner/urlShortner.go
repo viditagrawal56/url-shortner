@@ -142,7 +142,7 @@ func (s *URLShortnerService) GetUserShortURLs(userID uuid.UUID) ([]models.ShortU
 
 // TODO: Improve the shortining algorithm
 func (s *URLShortnerService) generateUniqueShortCode() (string, error) {
-	for attempts := 0; attempts < 5; attempts++ {
+	for range 5 {
 		shortCode, err := generateRandomString(shortCodeLength)
 		if err != nil {
 			return "", err
