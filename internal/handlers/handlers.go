@@ -5,19 +5,23 @@ import (
 	"errors"
 	"log"
 	"net/http"
+	"strings"
 
 	"github.com/go-chi/chi/middleware"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/cors"
+	"github.com/google/uuid"
 	"github.com/viditagrawal56/url-shortner/internal/auth"
 	"github.com/viditagrawal56/url-shortner/internal/config"
 	"github.com/viditagrawal56/url-shortner/internal/db"
 	"github.com/viditagrawal56/url-shortner/internal/models"
+	"github.com/viditagrawal56/url-shortner/internal/urlShortner"
 )
 
 type API struct {
-	cfg  *config.Config
-	auth *auth.Service
+	cfg         *config.Config
+	auth        *auth.Service
+	urlShortner *urlShortner.URLShortnerService
 }
 
 type Response struct {
@@ -28,9 +32,12 @@ type Response struct {
 
 func NewRouter(database *db.Database, cfg *config.Config) http.Handler {
 	authService := auth.New(database, cfg)
+	urlShortnerService := urlShortner.NewUrlShortnerService(database.GetDB())
+
 	api := &API{
-		cfg:  cfg,
-		auth: authService,
+		cfg:         cfg,
+		auth:        authService,
+		urlShortner: urlShortnerService,
 	}
 
 	r := chi.NewRouter()
@@ -52,11 +59,14 @@ func NewRouter(database *db.Database, cfg *config.Config) http.Handler {
 		r.Post("/register", api.HandleUserRegistration)
 		r.Post("/login", api.HandleUserLogin)
 		r.Get("/", api.HandleHome)
+		r.Get("/{shortCode}", api.HandleRedirect)
 	})
 
 	//Protected routes
 	r.Group(func(r chi.Router) {
 		r.Use(authService.AuthMiddleware)
+
+		// protected route for testing
 		r.Get("/protected", func(w http.ResponseWriter, r *http.Request) {
 			w.Header().Set("Content-Type", "application/json")
 			response := map[string]string{"message": "this is a protected endpoint"}
@@ -65,6 +75,9 @@ func NewRouter(database *db.Database, cfg *config.Config) http.Handler {
 				http.Error(w, "Error encoding response", http.StatusInternalServerError)
 			}
 		})
+
+		r.Post("/urls", api.HandleCreateShortURL)
+		r.Get("/urls", api.HandleGetUserShortURLs)
 	})
 
 	return r
@@ -150,6 +163,93 @@ func (a *API) HandleUserLogin(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+func (a *API) HandleCreateShortURL(w http.ResponseWriter, r *http.Request) {
+	userID, ok := r.Context().Value(auth.UserIDKey).(uuid.UUID)
+	if !ok {
+		respondWithError(w, http.StatusUnauthorized, "You are not authorized, Please login")
+		return
+	}
+
+	var req models.CreateShortURLRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		respondWithError(w, http.StatusBadRequest, "Invalid Request")
+		return
+	}
+
+	// Validate the incoming URL
+	if req.OriginalURL == "" || !isValidURL(req.OriginalURL) {
+		respondWithError(w, http.StatusBadRequest, "Please enter a valid URL")
+		return
+	}
+
+	shortURL, err := a.urlShortner.CreateShortURL(userID, req.OriginalURL, req.Options)
+	if err != nil {
+		log.Printf("Error creating short URL: %v", err)
+		respondWithError(w, http.StatusInternalServerError, "Failed to create the short URL")
+		return
+	}
+
+	respondWithJSON(w, http.StatusCreated, Response{
+		Success: true,
+		Data:    shortURL,
+	})
+}
+
+func (a *API) HandleRedirect(w http.ResponseWriter, r *http.Request) {
+	shortCode := chi.URLParam(r, "shortCode")
+	if shortCode == "" {
+		http.Redirect(w, r, "/", http.StatusFound)
+		return
+	}
+
+	// TODO: get the email from the cookies afer figuring out the visitor auth
+	email := ""
+
+	shortURL, err := a.urlShortner.ResolveShortURL(shortCode, email)
+	if err != nil {
+		switch {
+		case errors.Is(err, urlShortner.ErrURLNotFound):
+			respondWithError(w, http.StatusNotFound, "URL not found")
+		case errors.Is(err, urlShortner.ErrURLExpired):
+			respondWithError(w, http.StatusGone, "URL has expired")
+		case errors.Is(err, urlShortner.ErrURLNotYetValid):
+			respondWithError(w, http.StatusForbidden, "URL is not yet valid")
+		case errors.Is(err, urlShortner.ErrAuthenticationRequired):
+			// TODO: Redirect to email verification page
+			respondWithError(w, http.StatusNotFound, "Please verify your email")
+		case errors.Is(err, urlShortner.ErrUnauthorizedAccess):
+			respondWithError(w, http.StatusForbidden, "You are not authorized to access this URL")
+		default:
+			log.Printf("Error resolving short URL: %v", err)
+			respondWithError(w, http.StatusInternalServerError, "An error occurred")
+		}
+		return
+	}
+
+	// Redirect to the original URL
+	http.Redirect(w, r, shortURL.OriginalURL, http.StatusFound)
+}
+
+func (a *API) HandleGetUserShortURLs(w http.ResponseWriter, r *http.Request) {
+	userID, ok := r.Context().Value(auth.UserIDKey).(uuid.UUID)
+	if !ok {
+		respondWithError(w, http.StatusUnauthorized, "Unauthorized")
+		return
+	}
+
+	shortURLs, err := a.urlShortner.GetUserShortURLs(userID)
+	if err != nil {
+		log.Printf("error getting user's short URLs: %v", err)
+		respondWithError(w, http.StatusInternalServerError, "Failed to get short URLs")
+		return
+	}
+
+	respondWithJSON(w, http.StatusFound, Response{
+		Success: true,
+		Data:    shortURLs,
+	})
+}
+
 func respondWithJSON(w http.ResponseWriter, code int, payload interface{}) {
 	response, err := json.Marshal(payload)
 	if err != nil {
@@ -168,4 +268,9 @@ func respondWithError(w http.ResponseWriter, code int, message string) {
 		Success: false,
 		Message: message,
 	})
+}
+
+// TODO: Improve the url validation to make it more robust
+func isValidURL(url string) bool {
+	return strings.HasPrefix(url, "http://") || strings.HasPrefix(url, "https://")
 }

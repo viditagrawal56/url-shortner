@@ -42,8 +42,8 @@ type JWTClaims struct {
 type contextKey string
 
 const (
-	userIDKey contextKey = "userID"
-	emailKey  contextKey = "email"
+	UserIDKey contextKey = "userID"
+	EmailKey  contextKey = "email"
 )
 
 func New(database *db.Database, cfg *config.Config) *Service {
@@ -168,8 +168,8 @@ func (s *Service) AuthMiddleware(next http.Handler) http.Handler {
 			return
 		}
 
-		ctx := context.WithValue(r.Context(), userIDKey, claims.UserID)
-		ctx = context.WithValue(ctx, emailKey, claims.Email)
+		ctx := context.WithValue(r.Context(), UserIDKey, claims.UserID)
+		ctx = context.WithValue(ctx, EmailKey, claims.Email)
 
 		// Add security headers
 		w.Header().Set("X-Content-Type-Options", "nosniff")
@@ -178,15 +178,6 @@ func (s *Service) AuthMiddleware(next http.Handler) http.Handler {
 
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
-}
-
-func GetUserIDFromContext(ctx context.Context) (uint, bool) {
-	id, ok := ctx.Value("userID").(uint)
-	return id, ok
-}
-func GetEmailFromContext(ctx context.Context) (string, bool) {
-	email, ok := ctx.Value("email").(string)
-	return email, ok
 }
 
 func writeAuthError(w http.ResponseWriter, err error) {
