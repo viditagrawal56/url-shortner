@@ -6,6 +6,7 @@ import Register from "./pages/Register";
 import ProtectedRoute from "./components/ProtectedRoutes";
 import Dashboard from "./pages/Dashboard";
 import { ToastContainer } from "react-toastify";
+import CreateURL from "./pages/CreateURL";
 
 function App() {
   return (
@@ -23,6 +24,14 @@ function App() {
                   element={
                     <ProtectedRoute>
                       <Dashboard />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/create"
+                  element={
+                    <ProtectedRoute>
+                      <CreateURL />
                     </ProtectedRoute>
                   }
                 />

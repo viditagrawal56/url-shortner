@@ -28,7 +28,7 @@ export default function Login() {
       if (!response.ok) {
         throw new Error(data.message || "Login failed");
       }
-
+      console.log(data.data);
       login(data.data.token);
       toast.success("Logged in successfully!");
       navigate("/dashboard");

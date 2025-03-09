@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 
 interface URL {
@@ -14,6 +14,7 @@ const Dashboard: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const { token } = useAuth();
+  const navigate = useNavigate();
 
   useEffect(() => {
     fetchUrls();
@@ -21,12 +22,16 @@ const Dashboard: React.FC = () => {
 
   const fetchUrls = async () => {
     try {
-      console.log(token);
       const response = await fetch("http://localhost:8080/urls", {
         headers: {
           Authorization: `Bearer ${token}`,
         },
       });
+
+      // if token is expired or user is unauthorized
+      if (response.status == 401) {
+        navigate("/login");
+      }
 
       const data = await response.json();
       if (data.success != true) {
