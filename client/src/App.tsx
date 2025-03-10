@@ -7,6 +7,7 @@ import ProtectedRoute from "./components/ProtectedRoutes";
 import Dashboard from "./pages/Dashboard";
 import { ToastContainer } from "react-toastify";
 import CreateURL from "./pages/CreateURL";
+import Navbar from "./components/NavBar";
 
 function App() {
   return (
@@ -14,7 +15,8 @@ function App() {
       <AuthProvider>
         <Router>
           <div className="min-h-screen bg-gray-50">
-            <main className="container mx-auto px-4 py-8">
+            <Navbar />
+            <main className="container mx-auto px-4">
               <Routes>
                 <Route path="/" element={<Home />} />
                 <Route path="/login" element={<Login />} />
@@ -37,7 +39,11 @@ function App() {
                 />
               </Routes>
             </main>
-            <ToastContainer position="bottom-right" />
+            <ToastContainer
+              autoClose={2000}
+              pauseOnHover={true}
+              position="bottom-right"
+            />
           </div>
         </Router>
       </AuthProvider>
