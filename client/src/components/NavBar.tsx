@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+import { Shield } from "lucide-react";
 
 export default function Navbar() {
   const { isAuthenticated, logout } = useAuth();
@@ -10,8 +11,8 @@ export default function Navbar() {
         <div className="flex justify-between h-16">
           <div className="flex">
             <Link to="/" className="flex items-center">
-              <span className="text-xl font-bold text-blue-600">
-                URL Shortener
+              <span className="flex items-center justify-center text-xl font-bold text-indigo-600">
+                <Shield /> SecureLink
               </span>
             </Link>
           </div>
@@ -45,7 +46,7 @@ export default function Navbar() {
                 </Link>
                 <Link
                   to="/register"
-                  className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700"
+                  className="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700"
                 >
                   Register
                 </Link>

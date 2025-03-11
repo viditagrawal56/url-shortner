@@ -49,7 +49,7 @@ const Dashboard: React.FC = () => {
   if (loading) {
     return (
       <div className="flex justify-center items-center min-h-[60vh]">
-        <div className="animate-spin rounded-full h-12 w-12 border-4 border-blue-500 border-t-transparent"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-4 border-indigo-500 border-t-transparent"></div>
       </div>
     );
   }
@@ -60,7 +60,7 @@ const Dashboard: React.FC = () => {
         <p>{error}</p>
         <button
           onClick={fetchUrls}
-          className="mt-4 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+          className="mt-4 px-4 py-2 bg-indigo-500 text-white rounded hover:bg-indigo-600"
         >
           Retry
         </button>
@@ -76,7 +76,7 @@ const Dashboard: React.FC = () => {
         </h1>
         <Link
           to="/create"
-          className="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600 transition-colors"
+          className="bg-indigo-500 text-white px-4 py-2 rounded-md hover:bg-indigo-600 transition-colors"
         >
           Create New URL
         </Link>
@@ -90,7 +90,7 @@ const Dashboard: React.FC = () => {
           </p>
           <Link
             to="/create"
-            className="mt-4 inline-block bg-blue-500 text-white px-6 py-2 rounded-md hover:bg-blue-600"
+            className="mt-4 inline-block bg-indigo-500 text-white px-6 py-2 rounded-md hover:bg-indigo-600"
           >
             Create URL
           </Link>
@@ -120,7 +120,7 @@ const Dashboard: React.FC = () => {
                         href={`http://localhost:8080/${url.short_code}`}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="text-blue-600 hover:text-blue-800"
+                        className="text-indigo-600 hover:text-indigo-800"
                       >
                         {url.short_code}
                       </a>
