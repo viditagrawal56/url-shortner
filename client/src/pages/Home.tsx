@@ -6,7 +6,6 @@ import {
   Link,
   Share2,
   Users,
-  Shield,
   ChevronRight,
 } from "lucide-react";
 
