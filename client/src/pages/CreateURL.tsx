@@ -1,18 +1,28 @@
-import { useState, type FormEvent } from "react";
+import { useCallback, useState, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { toast } from "react-toastify";
 import { Link2, ArrowRight, Lock, Bell, Mail, Users, Info } from "lucide-react";
 
 export default function CreateURL() {
-  const [originalUrl, setOriginalUrl] = useState("");
-  const [requiresAuth, setRequiresAuth] = useState(false);
-  const [notifyOnAccess, setNotifyOnAccess] = useState(false);
-  const [authorizedEmails, setAuthorizedEmails] = useState("");
+  const [formData, setFormData] = useState({
+    originalUrl: "",
+    requiresAuth: false,
+    notifyOnAccess: false,
+    authorizedEmails: "",
+  });
   const [loading, setLoading] = useState(false);
 
   const navigate = useNavigate();
   const { token } = useAuth();
+
+  const handleChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const { id, value, type, checked } = e.target;
+    setFormData((prev) => ({
+      ...prev,
+      [id]: type === "checkbox" ? checked : value,
+    }));
+  }, []);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -26,12 +36,14 @@ export default function CreateURL() {
           Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
-          original_url: originalUrl,
+          original_url: formData.originalUrl,
           options: {
-            requires_auth: requiresAuth,
-            notify_on_access: notifyOnAccess,
-            authorized_emails: requiresAuth
-              ? authorizedEmails.split(",").map((email) => email.trim())
+            requires_auth: formData.requiresAuth,
+            notify_on_access: formData.notifyOnAccess,
+            authorized_emails: formData.requiresAuth
+              ? formData.authorizedEmails
+                  .split(",")
+                  .map((email) => email.trim())
               : [],
           },
         }),
@@ -83,8 +95,8 @@ export default function CreateURL() {
                 <input
                   id="originalUrl"
                   type="url"
-                  value={originalUrl}
-                  onChange={(e) => setOriginalUrl(e.target.value)}
+                  value={formData.originalUrl}
+                  onChange={handleChange}
                   className="appearance-none block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-lg text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition duration-150 ease-in-out"
                   placeholder="https://example.com/very-long-url-that-needs-shortening"
                   required
@@ -97,8 +109,8 @@ export default function CreateURL() {
                 <input
                   type="checkbox"
                   id="requiresAuth"
-                  checked={requiresAuth}
-                  onChange={(e) => setRequiresAuth(e.target.checked)}
+                  checked={formData.requiresAuth}
+                  onChange={handleChange}
                   className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
                 />
                 <label
@@ -119,7 +131,7 @@ export default function CreateURL() {
                 </div>
               </div>
 
-              {requiresAuth && (
+              {formData.requiresAuth && (
                 <div className="ml-6 mb-4">
                   <label
                     htmlFor="authorizedEmails"
@@ -135,8 +147,8 @@ export default function CreateURL() {
                     <input
                       id="authorizedEmails"
                       type="text"
-                      value={authorizedEmails}
-                      onChange={(e) => setAuthorizedEmails(e.target.value)}
+                      value={formData.authorizedEmails}
+                      onChange={handleChange}
                       className="appearance-none block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-lg text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition duration-150 ease-in-out"
                       placeholder="user@example.com, another@example.com"
                     />
@@ -151,8 +163,8 @@ export default function CreateURL() {
                 <input
                   type="checkbox"
                   id="notifyOnAccess"
-                  checked={notifyOnAccess}
-                  onChange={(e) => setNotifyOnAccess(e.target.checked)}
+                  checked={formData.notifyOnAccess}
+                  onChange={handleChange}
                   className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
                 />
                 <label
