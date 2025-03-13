@@ -77,7 +77,7 @@ const Dashboard: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="min-h-[80vh] flex flex-col items-center justify-center bg-gradient-to-b from-white to-indigo-50 py-12 px-4">
+      <div className="min-h-[90vh] flex flex-col items-center justify-center bg-gradient-to-b from-white to-indigo-50 py-12 px-4">
         <div className="animate-spin rounded-full h-16 w-16 border-4 border-indigo-500 border-t-transparent"></div>
         <p className="mt-4 text-indigo-600 font-medium">Loading your URLs...</p>
       </div>
@@ -86,7 +86,7 @@ const Dashboard: React.FC = () => {
 
   if (error) {
     return (
-      <div className="min-h-[80vh] flex flex-col items-center justify-center bg-gradient-to-b from-white to-indigo-50 py-12 px-4">
+      <div className="min-h-[90vh] flex flex-col items-center justify-center bg-gradient-to-b from-white to-indigo-50 py-12 px-4">
         <div className="bg-white p-8 rounded-xl shadow-lg border border-red-100 max-w-md w-full text-center">
           <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-red-100 mb-4">
             <XCircle className="h-8 w-8 text-red-600" />
