@@ -40,14 +40,14 @@ function Home() {
               <div className="mt-8 flex flex-col sm:flex-row gap-4">
                 <button
                   onClick={handleButtonClick}
-                  className="px-8 py-4 bg-indigo-600 text-white font-semibold rounded-lg shadow-lg hover:bg-indigo-700 transition duration-300 flex items-center justify-center"
+                  className="px-8 py-4 bg-indigo-600 text-white font-semibold rounded-lg shadow-lg hover:bg-indigo-700 transition duration-300 flex items-center justify-center cursor-pointer"
                 >
                   {isAuthenticated ? "Go to Dashboard" : "Get Started"}
                   <ArrowRight className="ml-2 h-5 w-5" />
                 </button>
                 <button
                   onClick={() => navigate("/login")}
-                  className="px-8 py-4 bg-white text-indigo-600 font-semibold rounded-lg shadow-md border border-indigo-100 hover:bg-indigo-50 transition duration-300"
+                  className="px-8 py-4 bg-white text-indigo-600 font-semibold rounded-lg shadow-md border border-indigo-100 hover:bg-indigo-50 transition duration-300 cursor-pointer"
                 >
                   Learn More
                 </button>
@@ -317,7 +317,7 @@ function Home() {
             </p>
             <button
               onClick={handleButtonClick}
-              className="px-8 py-4 bg-white text-indigo-600 font-semibold rounded-lg shadow-lg hover:bg-indigo-50 transition duration-300 flex items-center mx-auto"
+              className="px-8 py-4 bg-white text-indigo-600 font-semibold rounded-lg shadow-lg hover:bg-indigo-50 transition duration-300 flex items-center mx-auto cursor-pointer"
             >
               {isAuthenticated ? "Go to Dashboard" : "Get Started Now"}
               <ChevronRight className="ml-2 h-5 w-5" />

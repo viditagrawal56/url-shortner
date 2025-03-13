@@ -97,7 +97,7 @@ const Dashboard: React.FC = () => {
           <p className="text-red-600 mb-6">{error}</p>
           <button
             onClick={fetchUrls}
-            className="px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg hover:from-indigo-700 hover:to-purple-700 transition-all duration-200 shadow-md"
+            className="px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg hover:from-indigo-700 hover:to-purple-700 transition-all duration-200 shadow-md cursor-pointer"
           >
             Try Again
           </button>

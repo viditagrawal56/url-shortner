@@ -45,7 +45,7 @@ export default function Navbar() {
             logout();
             closeMenu();
           }}
-          className="ml-2 px-4 py-2 flex items-center bg-white border border-red-500 text-red-500 rounded-md text-sm font-medium hover:bg-red-50 transition-colors duration-200"
+          className="ml-2 px-4 py-2 flex items-center bg-white border border-red-500 text-red-500 rounded-md text-sm font-medium hover:bg-red-50 transition-colors duration-200 cursor-pointer"
         >
           <LogOut className="h-4 w-4 mr-1" />
           Logout
@@ -101,7 +101,7 @@ export default function Navbar() {
           <div className="md:hidden flex items-center">
             <button
               onClick={toggleMenu}
-              className="inline-flex items-center justify-center p-2 rounded-md text-gray-700 hover:text-indigo-600 hover:bg-indigo-50 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-indigo-500"
+              className="inline-flex items-center justify-center p-2 rounded-md text-gray-700 hover:text-indigo-600 hover:bg-indigo-50 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-indigo-500 cursor-pointer"
             >
               <span className="sr-only">Open main menu</span>
               {isMenuOpen ? (

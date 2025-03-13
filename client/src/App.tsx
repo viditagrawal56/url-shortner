@@ -8,6 +8,7 @@ import Dashboard from "./pages/Dashboard";
 import { ToastContainer } from "react-toastify";
 import CreateURL from "./pages/CreateURL";
 import Navbar from "./components/NavBar";
+import NotFound from "./pages/NotFound";
 
 function App() {
   return (
@@ -37,6 +38,9 @@ function App() {
                     </ProtectedRoute>
                   }
                 />
+
+                {/* Catch-all route for 404 pages */}
+                <Route path="*" element={<NotFound />} />
               </Routes>
             </main>
             <ToastContainer
