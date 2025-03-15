@@ -140,6 +140,25 @@ func (s *URLShortnerService) GetUserShortURLs(userID uuid.UUID) ([]models.ShortU
 	return shortURLs, nil
 }
 
+func (s *URLShortnerService) DeleteShortURL(userID uuid.UUID, shortURLID uuid.UUID) error {
+	return s.db.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Where("short_url_id = ?", shortURLID).Delete(&models.AuthorizedEmail{}).Error; err != nil {
+			return fmt.Errorf("failed to delete authorized emails: %w", err)
+		}
+
+		result := tx.Where("id = ? AND user_id = ?", shortURLID, userID).Delete(&models.ShortURL{})
+		if result.Error != nil {
+			return fmt.Errorf("failed to delete short URL: %w", result.Error)
+		}
+
+		if result.RowsAffected == 0 {
+			return ErrURLNotFound
+		}
+
+		return nil
+	})
+}
+
 // TODO: Improve the shortining algorithm
 func (s *URLShortnerService) generateUniqueShortCode() (string, error) {
 	for range 5 {

@@ -78,6 +78,7 @@ func NewRouter(database *db.Database, cfg *config.Config) http.Handler {
 
 		r.Post("/urls", api.HandleCreateShortURL)
 		r.Get("/urls", api.HandleGetUserShortURLs)
+		r.Delete("/urls/{urlID}", api.HandleDeleteShortURL)
 	})
 
 	return r
@@ -248,6 +249,32 @@ func (a *API) HandleGetUserShortURLs(w http.ResponseWriter, r *http.Request) {
 		Success: true,
 		Data:    shortURLs,
 	})
+}
+
+func (a *API) HandleDeleteShortURL(w http.ResponseWriter, r *http.Request) {
+	userID, ok := r.Context().Value(auth.UserIDKey).(uuid.UUID)
+	if !ok {
+		respondWithError(w, http.StatusUnauthorized, "Unauthorized")
+		return
+	}
+
+	urlID, err := uuid.Parse(chi.URLParam(r, "urlID"))
+	if err != nil {
+		respondWithError(w, http.StatusBadRequest, "Invalid URL ID")
+		return
+	}
+
+	err = a.urlShortner.DeleteShortURL(userID, urlID)
+	if err != nil {
+		switch {
+		case errors.Is(err, urlShortner.ErrURLNotFound):
+			respondWithError(w, http.StatusNotFound, "URL not found")
+		default:
+			log.Printf("Error deleting short URL: %v", err)
+			respondWithError(w, http.StatusInternalServerError, "Failed to delete short URL")
+		}
+		return
+	}
 }
 
 func respondWithJSON(w http.ResponseWriter, code int, payload interface{}) {

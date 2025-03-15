@@ -36,7 +36,7 @@ type ShortURL struct {
 }
 
 type AuthorizedEmail struct {
-	ShortURLID uuid.UUID `gorm:"type:uuid;primaryKey;not null" json:"short_url_id"`
+	ShortURLID uuid.UUID `gorm:"type:uuid;primaryKey;not null;references:ID;constraint:OnDelete:CASCADE" json:"short_url_id"`
 	Email      string    `gorm:"type:varchar(255);primaryKey;not null" json:"email"`
 
 	// Associations
