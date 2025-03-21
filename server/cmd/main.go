@@ -27,7 +27,7 @@ func main() {
 	resetDB := flag.Bool("reset-db", false, "Reset the database before running migrations")
 	flag.Parse()
 
-	// Initialize database
+	// Load and open a connection to the database
 	database, err := db.New(cfg.Database)
 	if err != nil {
 		log.Fatalf("Failed to load configuration: %v", err)
@@ -36,7 +36,7 @@ func main() {
 	defer database.Close()
 
 	// Models to migrate
-	models := []interface{}{
+	models := []any{
 		&models.User{},
 		&models.AuthorizedEmail{},
 		&models.ShortURL{},

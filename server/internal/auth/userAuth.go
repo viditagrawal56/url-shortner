@@ -75,8 +75,7 @@ func (s *Service) RegisterUser(email, password string) error {
 	}
 
 	// Check if user already exists
-	var existingUser models.User
-	if result := s.db.GetDB().Where("email = ?", email).First(&existingUser); result.Error == nil {
+	if result := s.db.GetDB().Where("email = ?", email).First(&models.User{}); result.Error == nil {
 		return ErrUserExists
 	}
 
@@ -107,8 +106,11 @@ func (s *Service) LoginUser(email, password string) (string, error) {
 	// Find user
 	var user models.User
 	result := s.db.GetDB().Where("email = ?", email).First(&user)
-	if errors.Is(result.Error, gorm.ErrRecordNotFound) {
-		return "", ErrInvalidCredentials
+	if result.Error != nil {
+		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+			return "", ErrInvalidCredentials
+		}
+		return "", fmt.Errorf("database error: %w", result.Error)
 	}
 
 	// Verify Password
@@ -142,7 +144,7 @@ func (s *Service) AuthMiddleware(next http.Handler) http.Handler {
 
 		tokenString := parts[1]
 		claims := &JWTClaims{}
-		token, err := jwt.ParseWithClaims(tokenString, claims, func(token *jwt.Token) (interface{}, error) {
+		token, err := jwt.ParseWithClaims(tokenString, claims, func(token *jwt.Token) (any, error) {
 			// Validate the signing method
 			if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 				return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
@@ -189,13 +191,13 @@ func writeAuthError(w http.ResponseWriter, err error) {
 		json.NewEncoder(w).Encode(map[string]string{"error": "Authorization header required"})
 	case ErrInvalidToken:
 		w.WriteHeader(http.StatusUnauthorized)
-		json.NewEncoder(w).Encode(map[string]string{"error": "Invlaid token format"})
+		json.NewEncoder(w).Encode(map[string]string{"error": "Invalid token format"})
 	case ErrExpiredToken:
 		w.WriteHeader(http.StatusUnauthorized)
 		json.NewEncoder(w).Encode(map[string]string{"error": "Token has expired"})
 	case ErrInvalidSignature:
 		w.WriteHeader(http.StatusUnauthorized)
-		json.NewEncoder(w).Encode(map[string]string{"error": "Invliad token signature"})
+		json.NewEncoder(w).Encode(map[string]string{"error": "Invalid token signature"})
 	default:
 		w.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(w).Encode(map[string]string{"error": "Internal server error"})

@@ -2,7 +2,6 @@ package config
 
 import (
 	"fmt"
-	"log"
 	"os"
 	"strconv"
 	"time"
@@ -33,43 +32,75 @@ type AuthConfig struct {
 
 func Load() (*Config, error) {
 	//Server Config
-	port, err := strconv.Atoi(getEnv("SERVER_PORT", "8080"))
+	port, err := parseIntEnv("SERVER_PORT", "8080")
 	if err != nil {
-		return nil, fmt.Errorf("invalid SERVER_PORT: %w", err)
+		return nil, err
 	}
+	baseURL := getStringEnv("SERVER_BASE_URL", "http://localhost:8080")
 
 	//Database Config
-	maxOpenConns, _ := strconv.Atoi(getEnv("DB_MAX_OPEN_CONNS", "25"))
-	maxIdleConns, _ := strconv.Atoi(getEnv("DB_MAX_IDLE_CONNS", "25"))
-	connMaxLifetime, _ := time.ParseDuration(getEnv("DB_CONN_MAX_LIFETIME", "5m"))
+	connectionStr := getStringEnv("DB_CONNECTION_STRING", "postgresql://postgres:postgres@localhost:5432/urlshortnerdb?sslmode=disable")
+	maxOpenConns, err := parseIntEnv("DB_MAX_OPEN_CONNS", "25")
+	if err != nil {
+		return nil, err
+	}
+	maxIdleConns, err := parseIntEnv("DB_MAX_IDLE_CONNS", "25")
+	if err != nil {
+		return nil, err
+	}
+	connMaxLifetime, err := parseDurationEnv("DB_CONN_MAX_LIFETIME", "5m")
+	if err != nil {
+		return nil, err
+	}
 
 	//Auth Config
-	tokenExpiration, err := time.ParseDuration(getEnv("AUTH_TOKEN_EXPIRATION", "15m"))
+	tokenExpiration, err := parseDurationEnv("AUTH_TOKEN_EXPIRATION", "15m")
 	if err != nil {
-		log.Fatal("Invalid AUTH_TOKEN_EXPIRATION format. Use a valid duration string like '15m'")
+		return nil, err
 	}
+	jwtSecret := getStringEnv("AUTH_JWT_SECRET", "auth-jwt-secret-key")
 
 	return &Config{
 		Server: ServerConfig{
 			Port:    port,
-			BaseURL: getEnv("SERVER_BASE_URL", "http://localhost:8080"),
+			BaseURL: baseURL,
 		},
 		Database: DatabaseConfig{
-			ConnectionStr:   getEnv("DB_CONNECTION_STRING", "postgresql://postgres:postgres@localhost:5432/urlshortnerdb?sslmode=disable"),
+			ConnectionStr:   connectionStr,
 			MaxOpenConns:    maxOpenConns,
 			MaxIdleConns:    maxIdleConns,
 			ConnMaxLifetime: connMaxLifetime,
 		},
 		Auth: AuthConfig{
 			TokenExpiration: tokenExpiration,
-			JWTSecret:       getEnv("AUTH_JWT_SECRET", "auth-jwt-secret-key"),
+			JWTSecret:       jwtSecret,
 		},
 	}, nil
 }
 
-func getEnv(key, defaultValue string) string {
+func getStringEnv(key, defaultValue string) string {
 	if value, exists := os.LookupEnv(key); exists {
 		return value
 	}
 	return defaultValue
+}
+
+func parseIntEnv(key, defaultValue string) (int, error) {
+	valueStr := getStringEnv(key, defaultValue)
+	value, err := strconv.Atoi(valueStr)
+	if err != nil {
+		return 0, fmt.Errorf("invalid %s %q: %w", key, valueStr, err)
+	}
+
+	return value, nil
+}
+
+func parseDurationEnv(key, defaultValue string) (time.Duration, error) {
+	valueStr := getStringEnv(key, defaultValue)
+	value, err := time.ParseDuration(valueStr)
+	if err != nil {
+		return 0, fmt.Errorf("invalid %s %q: %w", key, valueStr, err)
+	}
+
+	return value, nil
 }
