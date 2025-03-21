@@ -15,10 +15,10 @@ type Database struct {
 }
 
 func New(cfg config.DatabaseConfig) (*Database, error) {
+	// Open a connection to the db
 	gormdb, err := gorm.Open(postgres.Open(cfg.ConnectionStr), &gorm.Config{
 		Logger: logger.Default.LogMode(logger.Silent),
 	})
-
 	if err != nil {
 		return nil, fmt.Errorf("failed to open database: %w", err)
 	}
@@ -49,11 +49,15 @@ func (d *Database) Close() error {
 	return sqlDB.Close()
 }
 
-func (d *Database) AutoMigrate(models ...interface{}) error {
+func (d *Database) AutoMigrate(models ...any) error {
+	log.Println("Running AutoMigrate...")
+
 	return d.db.AutoMigrate(models...)
 }
 
-func (d *Database) ResetAndMigrate(models ...interface{}) error {
+func (d *Database) ResetAndMigrate(models ...any) error {
+	log.Println("Resetting database and running migrations...")
+
 	// Drop tables in reverse order to handle foreign key constraints
 	for i := len(models) - 1; i >= 0; i-- {
 		if err := d.db.Migrator().DropTable(models[i]); err != nil {

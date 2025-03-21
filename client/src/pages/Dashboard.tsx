@@ -35,7 +35,7 @@ const Dashboard: React.FC = () => {
 
   useEffect(() => {
     fetchUrls();
-  }, []);
+  }, [token]);
 
   const fetchUrls = async () => {
     try {
@@ -59,6 +59,34 @@ const Dashboard: React.FC = () => {
       setError(err instanceof Error ? err.message : "An error occurred");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const deleteURL = async (urlID: string) => {
+    try {
+      const response = await fetch(`http://localhost:8080/urls/${urlID}`, {
+        method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to delete URL");
+      }
+
+      fetchUrls();
+      toast.success("URL deleted successfully");
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "Failed to delete URL"
+      );
+    }
+  };
+
+  const handleDelete = (urlID: string) => {
+    if (window.confirm("Are you sure you want to delete this URL?")) {
+      deleteURL(urlID);
     }
   };
 
@@ -255,7 +283,8 @@ const Dashboard: React.FC = () => {
                             <Edit className="h-5 w-5" />
                           </Link>
                           <ActionButton
-                            className="text-gray-600 hover:text-red-600 transition-colors p-1 rounded-md hover:bg-red-50"
+                            onClick={() => handleDelete(url.id)}
+                            className="text-gray-600 hover:text-red-600 transition-colors p-1 rounded-md hover:bg-red-50 cursor-pointer"
                             title="Delete URL"
                           >
                             <Trash2 className="h-5 w-5" />

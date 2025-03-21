@@ -25,9 +25,9 @@ type API struct {
 }
 
 type Response struct {
-	Success bool        `json:"success"`
-	Message string      `json:"message,omitempty"`
-	Data    interface{} `json:"data,omitempty"`
+	Success bool   `json:"success"`
+	Message string `json:"message,omitempty"`
+	Data    any    `json:"data,omitempty"`
 }
 
 func NewRouter(database *db.Database, cfg *config.Config) http.Handler {
@@ -41,8 +41,7 @@ func NewRouter(database *db.Database, cfg *config.Config) http.Handler {
 	}
 
 	r := chi.NewRouter()
-	r.Use(middleware.Logger)
-	r.Use(middleware.Recoverer)
+	r.Use(middleware.Logger, middleware.Recoverer)
 
 	//CORS middleware
 	r.Use(cors.Handler(cors.Options{
@@ -58,41 +57,22 @@ func NewRouter(database *db.Database, cfg *config.Config) http.Handler {
 	r.Group(func(r chi.Router) {
 		r.Post("/register", api.HandleUserRegistration)
 		r.Post("/login", api.HandleUserLogin)
-		r.Get("/", api.HandleHome)
 		r.Get("/{shortCode}", api.HandleRedirect)
 	})
 
 	//Protected routes
 	r.Group(func(r chi.Router) {
-		r.Use(authService.AuthMiddleware)
-
-		// protected route for testing
-		r.Get("/protected", func(w http.ResponseWriter, r *http.Request) {
-			w.Header().Set("Content-Type", "application/json")
-			response := map[string]string{"message": "this is a protected endpoint"}
-
-			if err := json.NewEncoder(w).Encode(response); err != nil {
-				http.Error(w, "Error encoding response", http.StatusInternalServerError)
-			}
-		})
-
+		r.Use(api.auth.AuthMiddleware)
 		r.Post("/urls", api.HandleCreateShortURL)
 		r.Get("/urls", api.HandleGetUserShortURLs)
+		r.Delete("/urls/{urlID}", api.HandleDeleteShortURL)
 	})
 
 	return r
 }
 
-func (a *API) HandleHome(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-	response := map[string]string{"message": "Hello there"}
-
-	if err := json.NewEncoder(w).Encode(response); err != nil {
-		http.Error(w, "Error encoding response", http.StatusInternalServerError)
-	}
-}
-
 func (a *API) HandleUserRegistration(w http.ResponseWriter, r *http.Request) {
+	// Retrieve the credentials from the request body
 	var credentials models.Credentials
 	if err := json.NewDecoder(r.Body).Decode(&credentials); err != nil {
 		respondWithError(w, http.StatusBadRequest, "Invalid request payload")
@@ -105,7 +85,7 @@ func (a *API) HandleUserRegistration(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Check if user already exists
+	// Register the user
 	err := a.auth.RegisterUser(credentials.Email, credentials.Password)
 	if err != nil {
 		switch {
@@ -127,6 +107,7 @@ func (a *API) HandleUserRegistration(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *API) HandleUserLogin(w http.ResponseWriter, r *http.Request) {
+	// Retrieve the credentials from the request body
 	var credentials models.Credentials
 	if err := json.NewDecoder(r.Body).Decode(&credentials); err != nil {
 		respondWithError(w, http.StatusBadRequest, "Invalid request payload")
@@ -248,6 +229,32 @@ func (a *API) HandleGetUserShortURLs(w http.ResponseWriter, r *http.Request) {
 		Success: true,
 		Data:    shortURLs,
 	})
+}
+
+func (a *API) HandleDeleteShortURL(w http.ResponseWriter, r *http.Request) {
+	userID, ok := r.Context().Value(auth.UserIDKey).(uuid.UUID)
+	if !ok {
+		respondWithError(w, http.StatusUnauthorized, "Unauthorized")
+		return
+	}
+
+	urlID, err := uuid.Parse(chi.URLParam(r, "urlID"))
+	if err != nil {
+		respondWithError(w, http.StatusBadRequest, "Invalid URL ID")
+		return
+	}
+
+	err = a.urlShortner.DeleteShortURL(userID, urlID)
+	if err != nil {
+		switch {
+		case errors.Is(err, urlShortner.ErrURLNotFound):
+			respondWithError(w, http.StatusNotFound, "URL not found")
+		default:
+			log.Printf("Error deleting short URL: %v", err)
+			respondWithError(w, http.StatusInternalServerError, "Failed to delete short URL")
+		}
+		return
+	}
 }
 
 func respondWithJSON(w http.ResponseWriter, code int, payload interface{}) {
