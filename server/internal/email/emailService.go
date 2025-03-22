@@ -57,3 +57,14 @@ func (s *Service) SendMagicLink(to, shortCode, token, baseURL string) error {
 
 	return nil
 }
+
+func (s *Service) SendEmail(to, subject, body string) error {
+	auth := smtp.PlainAuth("", s.cfg.SMTPUsername, s.cfg.SMTPPassword, s.cfg.SMTPHost)
+
+	mime := "MIME-version: 1.0;\nContent-Type: text/plain; charset=\"UTF-8\";\n\n"
+	msg := fmt.Sprintf("Subject: %s\n%s\n%s", subject, mime, body)
+
+	addr := fmt.Sprintf("%s:%d", s.cfg.SMTPHost, s.cfg.SMTPPort)
+
+	return smtp.SendMail(addr, auth, s.cfg.FromEmail, []string{to}, []byte(msg))
+}

@@ -31,7 +31,7 @@ type ShortURL struct {
 	UpdatedAt      time.Time  `gorm:"type:timestamp with time zone;not null;default:now()" json:"updated_at"`
 
 	// Associations
-	User             User              `gorm:"foreignKey:UserID" json:"-"`
+	User             User              `gorm:"foreignKey:UserID" json:"user,omitempty"`
 	AuthorizedEmails []AuthorizedEmail `gorm:"foreignKey:ShortURLID" json:"authorized_emails,omitempty"`
 }
 

@@ -3,6 +3,7 @@ package handlers
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"html/template"
 	"log"
 	"net/http"
@@ -228,6 +229,22 @@ func (a *API) HandleRedirect(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if shortURL.NotifyOnAccess {
+		go func() {
+			subject := "Your URL was visited"
+			body := fmt.Sprintf("Someone visited your shortened URL with short code: %s", shortURL.ShortCode)
+
+			err := a.emailService.SendEmail(shortURL.User.Email, subject, body)
+			if err != nil {
+				log.Printf("Failed to send notification email: %v", err)
+				log.Printf("ALERT: Notification email failure for URL %s, owner: %s, error: %v",
+					shortURL.ShortCode, shortURL.User.Email, err)
+			} else {
+				log.Printf("Successfully sent notification email for URL %s to %s",
+					shortURL.ShortCode, shortURL.User.Email)
+			}
+		}()
+	}
 	// Redirect to the original URL
 	http.Redirect(w, r, shortURL.OriginalURL, http.StatusFound)
 }
@@ -516,6 +533,24 @@ func (a *API) HandleMagicLinkVerification(w http.ResponseWriter, r *http.Request
 			respondWithError(w, http.StatusInternalServerError, "An error occurred")
 		}
 		return
+	}
+
+	if shortURL.NotifyOnAccess {
+		// Send notification email in a separate goroutine so that it dosent block the redirect if notification fails
+		go func() {
+			subject := "Your protected URL was accessed"
+			body := fmt.Sprintf("User %s accessed your protected URL with shorcode: %s", email, shortURL.ShortCode)
+
+			err := a.emailService.SendEmail(shortURL.User.Email, subject, body)
+			if err != nil {
+				log.Printf("Failed to send notification email: %v", err)
+				log.Printf("ALERT: Notification email failure for URL %s, owner: %s, error: %v",
+					shortURL.ShortCode, shortURL.User.Email, err)
+			} else {
+				log.Printf("Successfully sent notification email for URL %s to %s",
+					shortURL.ShortCode, shortURL.User.Email)
+			}
+		}()
 	}
 
 	// Redirect to the original URL

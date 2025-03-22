@@ -1,25 +1,23 @@
 # TODO List
 
-## Email Notifications
-- [ ] Implement email notification system
-- [ ] Test email delivery system
-
-## Frontend Migration
-- [ ] Remove email auth templates from backend
+## High Priority
+- [X] Implement email notification system
+- [X] Test email delivery system
 - [ ] Create new frontend components for email auth
+- [ ] Add the functionality to let the users set the valid from and valid until date of the URLs
+
+## Medium Priority
+- [ ] Remove email auth templates from backend
+- [ ] Implement a better short code generation algorithm
 - [ ] Implement frontend email validation
-
-## Code Cleanup
-- [ ] Refactor redundant code
-- [ ] Implement proper error handling
-- [ ] Add code documentation
-
-## Dockerization
 - [ ] Create Dockerfile for backend
 - [ ] Create Dockerfile for frontend
 - [ ] Set up docker-compose
-- [ ] Configure environment variables
 - [ ] Test containerized application
+- [ ] Implement proper error handling
+- [ ] Let the users edit the URL parameters after URL creation
 
-## Short Code Generation
-- [ ] Implement a better short code generation algorithm
+## Low Priority
+- [ ] Refactor redundant code
+- [ ] Add code documentation
+- [ ] Seperate Visitor Auth and User Auth into seperate files
