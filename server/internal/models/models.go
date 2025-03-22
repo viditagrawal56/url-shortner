@@ -60,3 +60,13 @@ type CreateShortURLRequest struct {
 	OriginalURL string          `json:"original_url" binding:"required"`
 	Options     ShortURLOptions `json:"options"`
 }
+
+type TemporaryToken struct {
+	ID        uuid.UUID  `gorm:"type:uuid;primaryKey;default:gen_random_uuid()" json:"id"`
+	Email     string     `gorm:"type:varchar(255);not null" json:"email"`
+	ShortCode string     `gorm:"type:varchar(7);not null" json:"short_code"`
+	Token     string     `gorm:"type:varchar(255);not null" json:"token"`
+	ExpiresAt time.Time  `gorm:"type:timestamp with time zone;not null" json:"expires_at"`
+	CreatedAt time.Time  `gorm:"type:timestamp with time zone;not null;default:now()" json:"created_at"`
+	UsedAt    *time.Time `gorm:"type:timestamp with time zone" json:"used_at"`
+}

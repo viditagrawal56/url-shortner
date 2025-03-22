@@ -2,6 +2,7 @@ package auth
 
 import (
 	"context"
+	"crypto/rand"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -45,6 +46,8 @@ const (
 	UserIDKey contextKey = "userID"
 	EmailKey  contextKey = "email"
 )
+
+const MagicLinkTokenExpiration = 15 * time.Minute
 
 func New(database *db.Database, cfg *config.Config) *Service {
 	return &Service{
@@ -180,6 +183,114 @@ func (s *Service) AuthMiddleware(next http.Handler) http.Handler {
 
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
+}
+
+func (s *Service) GenerateMagicLinkToken(email, shortCode string) (string, error) {
+	if email == "" || shortCode == "" {
+		return "", ErrInvalidInput
+	}
+
+	tokenBytes := make([]byte, 32)
+
+	_, err := rand.Read(tokenBytes)
+	if err != nil {
+		return "", fmt.Errorf("failed to generate random token: %w", err)
+	}
+	tokenID := uuid.NewString()
+
+	claims := jwt.MapClaims{
+		"email":      email,
+		"short_code": shortCode,
+		"token_id":   tokenID,
+		"exp":        time.Now().Add(MagicLinkTokenExpiration).Unix(),
+		"iat":        time.Now().Unix(),
+	}
+
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+
+	tokenString, err := token.SignedString([]byte(s.cfg.Auth.JWTSecret))
+	if err != nil {
+		return "", fmt.Errorf("failed to sign token: %w", err)
+	}
+
+	// Store the token in database
+	temporaryToken := models.TemporaryToken{
+		Email:     email,
+		ShortCode: shortCode,
+		Token:     tokenID,
+		ExpiresAt: time.Now().Add(MagicLinkTokenExpiration),
+	}
+
+	if err := s.db.GetDB().Create(&temporaryToken).Error; err != nil {
+		return "", fmt.Errorf("failed to store token: %w", err)
+	}
+
+	return tokenString, nil
+}
+
+func (s *Service) VerifyMagicLinkToken(tokenString string) (string, string, error) {
+	// Parse token
+	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (any, error) {
+		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
+		}
+
+		return []byte(s.cfg.Auth.JWTSecret), nil
+	})
+
+	if err != nil {
+		switch {
+		case errors.Is(err, jwt.ErrSignatureInvalid):
+			return "", "", ErrInvalidSignature
+		default:
+			return "", "", ErrInvalidToken
+		}
+	}
+
+	if !token.Valid {
+		return "", "", ErrInvalidToken
+	}
+
+	// Extract claims
+	claims, ok := token.Claims.(jwt.MapClaims)
+	if !ok {
+		return "", "", ErrInvalidToken
+	}
+
+	email, ok := claims["email"].(string)
+	if !ok {
+		return "", "", ErrInvalidToken
+	}
+
+	shortCode, ok := claims["short_code"].(string)
+	if !ok {
+		return "", "", ErrInvalidToken
+	}
+
+	tokenID, ok := claims["token_id"].(string)
+	if !ok {
+		return "", "", ErrInvalidToken
+	}
+
+	var temporaryToken models.TemporaryToken
+	result := s.db.GetDB().Where("token = ? AND email = ? AND short_code = ? AND used_at IS NULL AND expires_at > ?",
+		tokenID, email, shortCode, time.Now()).First(&temporaryToken)
+
+	if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+		return "", "", ErrInvalidToken
+	}
+
+	if result.Error != nil {
+		return "", "", fmt.Errorf("failed to verify token: %w", result.Error)
+	}
+
+	now := time.Now()
+	temporaryToken.UsedAt = &now
+	if err := s.db.GetDB().Save(&temporaryToken).Error; err != nil {
+		return "", "", fmt.Errorf("failed to mark token as used: %w", err)
+	}
+
+	return email, shortCode, nil
 }
 
 func writeAuthError(w http.ResponseWriter, err error) {

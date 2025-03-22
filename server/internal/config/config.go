@@ -2,15 +2,19 @@ package config
 
 import (
 	"fmt"
+	"log"
 	"os"
 	"strconv"
 	"time"
+
+	"github.com/joho/godotenv"
 )
 
 type Config struct {
 	Server   ServerConfig
 	Database DatabaseConfig
 	Auth     AuthConfig
+	Email    EmailConfig
 }
 
 type ServerConfig struct {
@@ -30,7 +34,20 @@ type AuthConfig struct {
 	JWTSecret       string
 }
 
+type EmailConfig struct {
+	SMTPHost     string
+	SMTPPort     int
+	SMTPUsername string
+	SMTPPassword string
+	FromEmail    string
+}
+
 func Load() (*Config, error) {
+	// Load .env file
+	if err := godotenv.Load(); err != nil {
+		log.Printf("Warning: .env file not found or could not be loaded")
+	}
+
 	//Server Config
 	port, err := parseIntEnv("SERVER_PORT", "8080")
 	if err != nil {
@@ -60,6 +77,9 @@ func Load() (*Config, error) {
 	}
 	jwtSecret := getStringEnv("AUTH_JWT_SECRET", "auth-jwt-secret-key")
 
+	//Email Config
+	smtpPort, _ := parseIntEnv("EMAIL_SMTP_PORT", "587")
+
 	return &Config{
 		Server: ServerConfig{
 			Port:    port,
@@ -74,6 +94,13 @@ func Load() (*Config, error) {
 		Auth: AuthConfig{
 			TokenExpiration: tokenExpiration,
 			JWTSecret:       jwtSecret,
+		},
+		Email: EmailConfig{
+			SMTPHost:     getStringEnv("EMAIL_SMTP_HOST", "smtp.example.com"),
+			SMTPPort:     smtpPort,
+			SMTPUsername: getStringEnv("EMAIL_SMTP_USERNAME", ""),
+			SMTPPassword: getStringEnv("EMAIL_SMTP_PASSWORD", ""),
+			FromEmail:    getStringEnv("EMAIL_FROM", "noreply@securelink.com"),
 		},
 	}, nil
 }

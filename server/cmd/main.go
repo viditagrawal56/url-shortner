@@ -41,6 +41,7 @@ func main() {
 		&models.AuthorizedEmail{},
 		&models.ShortURL{},
 		&models.Credentials{},
+		&models.TemporaryToken{},
 	}
 
 	// Handle migrations based on flag

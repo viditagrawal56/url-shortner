@@ -181,6 +181,21 @@ func (s *URLShortnerService) generateUniqueShortCode() (string, error) {
 	return "", errors.New("failed to generate a unique short code after multiple attempts")
 }
 
+// GetShortURLByCode retrieves a short URL by its code without performing access checks
+func (s *URLShortnerService) GetShortURLByCode(shortCode string) (*models.ShortURL, error) {
+	var shortURL models.ShortURL
+	if err := s.db.Preload("AuthorizedEmails").
+		Where("short_code = ? AND active = true", shortCode).
+		First(&shortURL).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, ErrURLNotFound
+		}
+		return nil, fmt.Errorf("failed to fetch short URL: %w", err)
+	}
+
+	return &shortURL, nil
+}
+
 func generateRandomString(length int) (string, error) {
 	result := make([]byte, length)
 	charsetLength := big.NewInt(int64(len(charset)))
