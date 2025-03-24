@@ -3,9 +3,12 @@ package handlers
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
+	"html/template"
 	"log"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/go-chi/chi/middleware"
 	"github.com/go-chi/chi/v5"
@@ -14,14 +17,16 @@ import (
 	"github.com/viditagrawal56/url-shortner/internal/auth"
 	"github.com/viditagrawal56/url-shortner/internal/config"
 	"github.com/viditagrawal56/url-shortner/internal/db"
+	"github.com/viditagrawal56/url-shortner/internal/email"
 	"github.com/viditagrawal56/url-shortner/internal/models"
 	"github.com/viditagrawal56/url-shortner/internal/urlShortner"
 )
 
 type API struct {
-	cfg         *config.Config
-	auth        *auth.Service
-	urlShortner *urlShortner.URLShortnerService
+	cfg          *config.Config
+	auth         *auth.Service
+	urlShortner  *urlShortner.URLShortnerService
+	emailService *email.Service
 }
 
 type Response struct {
@@ -33,11 +38,20 @@ type Response struct {
 func NewRouter(database *db.Database, cfg *config.Config) http.Handler {
 	authService := auth.New(database, cfg)
 	urlShortnerService := urlShortner.NewUrlShortnerService(database.GetDB())
+	emailConfig := &email.EmailConfig{
+		SMTPHost:     cfg.Email.SMTPHost,
+		SMTPPort:     cfg.Email.SMTPPort,
+		SMTPUsername: cfg.Email.SMTPUsername,
+		SMTPPassword: cfg.Email.SMTPPassword,
+		FromEmail:    cfg.Email.FromEmail,
+	}
+	emailService := email.NewEmailService(emailConfig)
 
 	api := &API{
-		cfg:         cfg,
-		auth:        authService,
-		urlShortner: urlShortnerService,
+		cfg:          cfg,
+		auth:         authService,
+		urlShortner:  urlShortnerService,
+		emailService: emailService,
 	}
 
 	r := chi.NewRouter()
@@ -58,6 +72,9 @@ func NewRouter(database *db.Database, cfg *config.Config) http.Handler {
 		r.Post("/register", api.HandleUserRegistration)
 		r.Post("/login", api.HandleUserLogin)
 		r.Get("/{shortCode}", api.HandleRedirect)
+		r.Get("/auth/{shortCode}", api.HandleAuthRequest)
+		r.Post("/auth/{shortCode}", api.HandleEmailSubmission)
+		r.Get("/verify", api.HandleMagicLinkVerification)
 	})
 
 	//Protected routes
@@ -183,30 +200,51 @@ func (a *API) HandleRedirect(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// TODO: get the email from the cookies afer figuring out the visitor auth
-	email := ""
-
-	shortURL, err := a.urlShortner.ResolveShortURL(shortCode, email)
+	// Get the short URL details
+	shortURL, err := a.urlShortner.GetShortURLByCode(shortCode)
 	if err != nil {
-		switch {
-		case errors.Is(err, urlShortner.ErrURLNotFound):
+		if errors.Is(err, urlShortner.ErrURLNotFound) {
 			respondWithError(w, http.StatusNotFound, "URL not found")
-		case errors.Is(err, urlShortner.ErrURLExpired):
-			respondWithError(w, http.StatusGone, "URL has expired")
-		case errors.Is(err, urlShortner.ErrURLNotYetValid):
-			respondWithError(w, http.StatusForbidden, "URL is not yet valid")
-		case errors.Is(err, urlShortner.ErrAuthenticationRequired):
-			// TODO: Redirect to email verification page
-			respondWithError(w, http.StatusNotFound, "Please verify your email")
-		case errors.Is(err, urlShortner.ErrUnauthorizedAccess):
-			respondWithError(w, http.StatusForbidden, "You are not authorized to access this URL")
-		default:
-			log.Printf("Error resolving short URL: %v", err)
+		} else {
 			respondWithError(w, http.StatusInternalServerError, "An error occurred")
 		}
 		return
 	}
 
+	// Check if URL requires authentication
+	if shortURL.RequiresAuth {
+		http.Redirect(w, r, "/auth/"+shortCode, http.StatusFound)
+		return
+	}
+
+	// If no auth required, check time validity
+	now := time.Now()
+	if shortURL.ValidFrom != nil && now.Before(*shortURL.ValidFrom) {
+		respondWithError(w, http.StatusForbidden, "URL is not yet valid")
+		return
+	}
+
+	if shortURL.ValidUntil != nil && now.After(*shortURL.ValidUntil) {
+		respondWithError(w, http.StatusGone, "URL has expired")
+		return
+	}
+
+	if shortURL.NotifyOnAccess {
+		go func() {
+			subject := "Your URL was visited"
+			body := fmt.Sprintf("Someone visited your shortened URL with short code: %s", shortURL.ShortCode)
+
+			err := a.emailService.SendEmail(shortURL.User.Email, subject, body)
+			if err != nil {
+				log.Printf("Failed to send notification email: %v", err)
+				log.Printf("ALERT: Notification email failure for URL %s, owner: %s, error: %v",
+					shortURL.ShortCode, shortURL.User.Email, err)
+			} else {
+				log.Printf("Successfully sent notification email for URL %s to %s",
+					shortURL.ShortCode, shortURL.User.Email)
+			}
+		}()
+	}
 	// Redirect to the original URL
 	http.Redirect(w, r, shortURL.OriginalURL, http.StatusFound)
 }
@@ -275,6 +313,248 @@ func respondWithError(w http.ResponseWriter, code int, message string) {
 		Success: false,
 		Message: message,
 	})
+}
+
+// Handler for showing the email input form
+func (a *API) HandleAuthRequest(w http.ResponseWriter, r *http.Request) {
+	shortCode := chi.URLParam(r, "shortCode")
+	if shortCode == "" {
+		http.Redirect(w, r, "/", http.StatusFound)
+		return
+	}
+
+	// Check if the short URL exists
+	_, err := a.urlShortner.GetShortURLByCode(shortCode)
+	if err != nil {
+		if errors.Is(err, urlShortner.ErrURLNotFound) {
+			respondWithError(w, http.StatusNotFound, "URL not found")
+		} else {
+			respondWithError(w, http.StatusInternalServerError, "An error occurred")
+		}
+		return
+	}
+
+	// Render email input form
+	tmpl := `
+<!DOCTYPE html>
+<html>
+<head>
+    <title>URL Authentication</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; }
+        .container { background: #f9f9f9; border-radius: 5px; padding: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        h1 { color: #333; }
+        .form-group { margin-bottom: 15px; }
+        label { display: block; margin-bottom: 5px; }
+        input[type="email"] { width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; }
+        button { background: #4CAF50; color: white; border: none; padding: 10px 15px; border-radius: 4px; cursor: pointer; }
+        .error { color: red; margin-top: 10px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Email Verification Required</h1>
+        <p>This URL requires verification. Please enter your email address to receive a magic link.</p>
+        
+        <form method="POST" action="/auth/{{.ShortCode}}">
+            <div class="form-group">
+                <label for="email">Email Address:</label>
+                <input type="email" id="email" name="email" required>
+            </div>
+            <button type="submit">Send Magic Link</button>
+        </form>
+    </div>
+</body>
+</html>
+`
+	t, err := template.New("auth").Parse(tmpl)
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "Template error")
+		return
+	}
+
+	data := struct {
+		ShortCode string
+	}{
+		ShortCode: shortCode,
+	}
+
+	w.Header().Set("Content-Type", "text/html")
+	t.Execute(w, data)
+}
+
+// Handler for email submission
+func (a *API) HandleEmailSubmission(w http.ResponseWriter, r *http.Request) {
+	shortCode := chi.URLParam(r, "shortCode")
+	if shortCode == "" {
+		http.Redirect(w, r, "/", http.StatusFound)
+		return
+	}
+
+	// Parse form
+	if err := r.ParseForm(); err != nil {
+		respondWithError(w, http.StatusBadRequest, "Invalid form data")
+		return
+	}
+
+	email := r.FormValue("email")
+	if email == "" {
+		http.Redirect(w, r, "/auth/"+shortCode, http.StatusFound)
+		return
+	}
+
+	// Generate token
+	token, err := a.auth.GenerateMagicLinkToken(email, shortCode)
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "Failed to generate verification token")
+		return
+	}
+
+	// Send email with magic link
+	err = a.emailService.SendMagicLink(email, shortCode, token, a.cfg.Server.BaseURL)
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "Failed to send verification email")
+		return
+	}
+
+	// Show confirmation page
+	tmpl := `
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Email Sent</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; }
+        .container { background: #f9f9f9; border-radius: 5px; padding: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        h1 { color: #333; }
+        .success { color: #4CAF50; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Email Sent!</h1>
+        <p class="success">We've sent a magic link to <strong>{{.Email}}</strong>.</p>
+        <p>Please check your inbox and click the link to access the URL. The link will expire in 15 minutes.</p>
+    </div>
+</body>
+</html>
+`
+	t, err := template.New("confirmation").Parse(tmpl)
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "Template error")
+		return
+	}
+
+	data := struct {
+		Email string
+	}{
+		Email: email,
+	}
+
+	w.Header().Set("Content-Type", "text/html")
+	t.Execute(w, data)
+}
+
+func (a *API) HandleMagicLinkVerification(w http.ResponseWriter, r *http.Request) {
+	token := r.URL.Query().Get("token")
+	if token == "" {
+		respondWithError(w, http.StatusBadRequest, "Missing token")
+		return
+	}
+	// Verify token
+	email, shortCode, err := a.auth.VerifyMagicLinkToken(token)
+	if err != nil {
+		// Show error page
+		tmpl := `
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Invalid or Expired Link</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; }
+        .container { background: #f9f9f9; border-radius: 5px; padding: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        h1 { color: #333; }
+        .error { color: red; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Invalid or Expired Link</h1>
+        <p class="error">The magic link you used is invalid or has expired.</p>
+        <p>Please request a new link to access the URL.</p>
+    </div>
+</body>
+</html>
+`
+		w.Header().Set("Content-Type", "text/html")
+		w.WriteHeader(http.StatusBadRequest)
+		template.Must(template.New("error").Parse(tmpl)).Execute(w, nil)
+		return
+	}
+
+	// Resolve the short URL with the verified email
+	shortURL, err := a.urlShortner.ResolveShortURL(shortCode, email)
+	if err != nil {
+		switch {
+		case errors.Is(err, urlShortner.ErrURLNotFound):
+			respondWithError(w, http.StatusNotFound, "URL not found")
+		case errors.Is(err, urlShortner.ErrURLExpired):
+			respondWithError(w, http.StatusGone, "URL has expired")
+		case errors.Is(err, urlShortner.ErrURLNotYetValid):
+			respondWithError(w, http.StatusForbidden, "URL is not yet valid")
+		case errors.Is(err, urlShortner.ErrUnauthorizedAccess):
+			// Show unauthorized access page
+			tmpl := `
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Access Denied</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; }
+        .container { background: #f9f9f9; border-radius: 5px; padding: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        h1 { color: #333; }
+        .error { color: red; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Access Denied</h1>
+        <p class="error">Your email address ({{.Email}}) is not authorized to access this URL.</p>
+        <p>Please contact the URL owner for access.</p>
+    </div>
+</body>
+</html>
+`
+			w.Header().Set("Content-Type", "text/html")
+			w.WriteHeader(http.StatusForbidden)
+			template.Must(template.New("unauthorized").Parse(tmpl)).Execute(w, struct{ Email string }{Email: email})
+			return
+		default:
+			respondWithError(w, http.StatusInternalServerError, "An error occurred")
+		}
+		return
+	}
+
+	if shortURL.NotifyOnAccess {
+		// Send notification email in a separate goroutine so that it dosent block the redirect if notification fails
+		go func() {
+			subject := "Your protected URL was accessed"
+			body := fmt.Sprintf("User %s accessed your protected URL with shorcode: %s", email, shortURL.ShortCode)
+
+			err := a.emailService.SendEmail(shortURL.User.Email, subject, body)
+			if err != nil {
+				log.Printf("Failed to send notification email: %v", err)
+				log.Printf("ALERT: Notification email failure for URL %s, owner: %s, error: %v",
+					shortURL.ShortCode, shortURL.User.Email, err)
+			} else {
+				log.Printf("Successfully sent notification email for URL %s to %s",
+					shortURL.ShortCode, shortURL.User.Email)
+			}
+		}()
+	}
+
+	// Redirect to the original URL
+	http.Redirect(w, r, shortURL.OriginalURL, http.StatusFound)
 }
 
 // TODO: Improve the url validation to make it more robust
