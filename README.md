@@ -2,6 +2,10 @@
 
 SecureLink is a modern, secure URL shortening service built with React and Go. It provides features like authentication-protected links and email notifications.
 
+# Demo Video
+
+https://github.com/user-attachments/assets/9b5cae81-4e7e-4e6e-95fd-67e0978dbd8a
+
 ## Features
 
 - **Secure Short Links**: Create shortened URLs with optional authentication protection
@@ -108,7 +112,7 @@ npm run dev
 ```
 client/
 ├── src/
-│   ├── components/       # Reusable React components
+│   ├── components/      # Reusable React components
 │   ├── context/         # React context providers
 │   ├── pages/           # Page components
 │   ├── App.tsx          # Main app component
