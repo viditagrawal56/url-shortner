@@ -45,7 +45,7 @@ type EmailConfig struct {
 func Load() (*Config, error) {
 	// Load .env file
 	if err := godotenv.Load(); err != nil {
-		log.Printf("Warning: .env file not found or could not be loaded")
+		log.Printf("Warning: Failed to load .env file: %v", err)
 	}
 
 	//Server Config
@@ -78,7 +78,10 @@ func Load() (*Config, error) {
 	jwtSecret := getStringEnv("AUTH_JWT_SECRET", "auth-jwt-secret-key")
 
 	//Email Config
-	smtpPort, _ := parseIntEnv("EMAIL_SMTP_PORT", "587")
+	smtpPort, err := parseIntEnv("EMAIL_SMTP_PORT", "587")
+	if err != nil {
+		return nil, err
+	}
 
 	return &Config{
 		Server: ServerConfig{

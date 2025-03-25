@@ -26,7 +26,7 @@ var (
 	ErrMissingToken       = errors.New("missing authorization token")
 	ErrInvalidToken       = errors.New("invalid token format")
 	ErrExpiredToken       = errors.New("token has expired")
-	ErrInvalidSignature   = errors.New("invlaid token signature")
+	ErrInvalidSignature   = errors.New("invalid token signature")
 )
 
 type Service struct {
@@ -67,9 +67,7 @@ func (s *Service) generateJWTToken(userID uuid.UUID, email string) (string, erro
 		},
 	}
 
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-
-	return token.SignedString([]byte(s.cfg.Auth.JWTSecret))
+	return jwt.NewWithClaims(jwt.SigningMethodHS256, claims).SignedString([]byte(s.cfg.Auth.JWTSecret))
 }
 
 func (s *Service) RegisterUser(email, password string) error {
