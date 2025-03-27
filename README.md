@@ -132,3 +132,11 @@ server/
 │   └── urlShortner/     # Core URL shortening logic
 └── go.mod               # Go module file
 ```
+
+### Images
+
+![homepage](https://github.com/user-attachments/assets/e63db2b2-a7eb-497e-a738-27b959de143e)
+![register](https://github.com/user-attachments/assets/6d1d8b4e-899d-4d41-ad87-a3865e111256)
+![login](https://github.com/user-attachments/assets/c3501642-c50a-4392-b695-473116f8039b)
+![create_url](https://github.com/user-attachments/assets/694a9136-6064-434d-a026-237bc31357b1)
+![dashboard](https://github.com/user-attachments/assets/e0441bdd-bef0-461a-92b9-5fe7d24013c1)
