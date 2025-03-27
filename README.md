@@ -140,3 +140,7 @@ server/
 ![login](https://github.com/user-attachments/assets/c3501642-c50a-4392-b695-473116f8039b)
 ![create_url](https://github.com/user-attachments/assets/694a9136-6064-434d-a026-237bc31357b1)
 ![dashboard](https://github.com/user-attachments/assets/e0441bdd-bef0-461a-92b9-5fe7d24013c1)
+![email_auth](https://github.com/user-attachments/assets/6fae6149-f48b-41ce-9764-226d9fe87c99)
+![email_confirmation](https://github.com/user-attachments/assets/7a95c33c-ab12-43ef-94a5-f01863fe337f)
+![email](https://github.com/user-attachments/assets/6f01d6d2-cf8c-4285-a127-3ad4d735ca84)
+![notification](https://github.com/user-attachments/assets/664b035c-e994-40cc-a1fa-a61da92d4947)
