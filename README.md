@@ -2,6 +2,10 @@
 
 SecureLink is a modern, secure URL shortening service built with React and Go. It provides features like authentication-protected links and email notifications.
 
+# Demo Video
+
+https://github.com/user-attachments/assets/9b5cae81-4e7e-4e6e-95fd-67e0978dbd8a
+
 ## Features
 
 - **Secure Short Links**: Create shortened URLs with optional authentication protection
@@ -108,7 +112,7 @@ npm run dev
 ```
 client/
 ├── src/
-│   ├── components/       # Reusable React components
+│   ├── components/      # Reusable React components
 │   ├── context/         # React context providers
 │   ├── pages/           # Page components
 │   ├── App.tsx          # Main app component
@@ -132,15 +136,3 @@ server/
 │   └── urlShortner/     # Core URL shortening logic
 └── go.mod               # Go module file
 ```
-
-### Images
-
-![homepage](https://github.com/user-attachments/assets/e63db2b2-a7eb-497e-a738-27b959de143e)
-![register](https://github.com/user-attachments/assets/6d1d8b4e-899d-4d41-ad87-a3865e111256)
-![login](https://github.com/user-attachments/assets/c3501642-c50a-4392-b695-473116f8039b)
-![create_url](https://github.com/user-attachments/assets/694a9136-6064-434d-a026-237bc31357b1)
-![dashboard](https://github.com/user-attachments/assets/e0441bdd-bef0-461a-92b9-5fe7d24013c1)
-![email_auth](https://github.com/user-attachments/assets/6fae6149-f48b-41ce-9764-226d9fe87c99)
-![email_confirmation](https://github.com/user-attachments/assets/7a95c33c-ab12-43ef-94a5-f01863fe337f)
-![email](https://github.com/user-attachments/assets/6f01d6d2-cf8c-4285-a127-3ad4d735ca84)
-![notification](https://github.com/user-attachments/assets/664b035c-e994-40cc-a1fa-a61da92d4947)
