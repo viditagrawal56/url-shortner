@@ -1,10 +1,9 @@
 package urlShortner
 
 import (
-	"crypto/rand"
+	"crypto/sha256"
 	"errors"
 	"fmt"
-	"math/big"
 	"time"
 
 	"github.com/google/uuid"
@@ -44,7 +43,7 @@ func (s *URLShortnerService) CreateShortURL(userID uuid.UUID, originalURL string
 		return nil, fmt.Errorf("failed to verify user: %w", err)
 	}
 
-	shortCode, err := s.generateUniqueShortCode()
+	shortCode, err := s.generateUniqueShortCode(originalURL)
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate short code: %w", err)
 	}
@@ -160,13 +159,18 @@ func (s *URLShortnerService) DeleteShortURL(userID uuid.UUID, shortURLID uuid.UU
 	})
 }
 
-// TODO: Improve the shortining algorithm
-func (s *URLShortnerService) generateUniqueShortCode() (string, error) {
+func (s *URLShortnerService) generateUniqueShortCode(originalURL string) (string, error) {
 	for range 5 {
-		shortCode, err := generateRandomString(shortCodeLength)
-		if err != nil {
-			return "", err
-		}
+		salt := uuid.New().String()
+		timestamp := time.Now().UnixNano()
+
+		hashInput := fmt.Sprintf("%s:%d:%s", salt, timestamp, originalURL)
+
+		hasher := sha256.New()
+		hasher.Write([]byte(hashInput))
+		hash := hasher.Sum(nil)
+
+		shortCode := toBase62(hash)[:shortCodeLength]
 
 		//Check if short code already exists
 		var count int64
@@ -198,17 +202,10 @@ func (s *URLShortnerService) GetShortURLByCode(shortCode string) (*models.ShortU
 	return &shortURL, nil
 }
 
-func generateRandomString(length int) (string, error) {
-	result := make([]byte, length)
-	charsetLength := big.NewInt(int64(len(charset)))
-
-	for i := 0; i < length; i++ {
-		randomIndex, err := rand.Int(rand.Reader, charsetLength)
-		if err != nil {
-			return "", err
-		}
-		result[i] = charset[randomIndex.Int64()]
+func toBase62(data []byte) string {
+	result := make([]byte, len(data))
+	for i, b := range data {
+		result[i] = charset[int(b)%len(charset)]
 	}
-
-	return string(result), nil
+	return string(result)
 }
